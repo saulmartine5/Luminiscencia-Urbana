@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escenario Futurista</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas" style="width: 100%; height: 100%;"></canvas>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0, 0, 0, 1);
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            const pbr = new BABYLON.PBRMaterial("pbr", scene);
+            pbr.emissiveColor = new BABYLON.Color3(0, 1, 1);
+            pbr.metallic = 0.5;
+            pbr.roughness = 0.5;
+
+            const roadWidth = 200;
+            const roadLength = 300;
+            const road = BABYLON.MeshBuilder.CreatePlane("road", { width: roadWidth, height: roadLength }, scene);
+            road.rotation.x = Math.PI / 2;
+            road.position.z = roadLength / 2;
+            road.material = new BABYLON.StandardMaterial("roadMat", scene);
+            road.material.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+            // Añadir más listones de luz
+            const lightStrips = [];
+            for (let i = 0; i < 550; i++) {
+                const lightStrip = BABYLON.MeshBuilder.CreateBox("lightStrip" + i, { height: 0.3, width: 0.5, depth: 4 }, scene);
+                lightStrip.material = pbr;
+                lightStrip.position.x = (Math.random() - 0.5) * roadWidth * 0.4;
+                lightStrip.position.z = i * 4;
+                lightStrips.push(lightStrip);
+            }
+
+            // Añadir más edificios
+            const buildings = [];
+            for (let i = 0; i < 200; i++) {
+                const building = BABYLON.MeshBuilder.CreateBox("building" + i, { height: Math.random() * 10 + 5, width: 2, depth: 2 }, scene);
+                building.position.x = (Math.random() - 0.5) * roadWidth * 2;
+                building.position.z = Math.random() * roadLength;
+                building.material = new BABYLON.StandardMaterial("buildingMat" + i, scene);
+                buildings.push(building);
+            }
+
+            // Crear una figura que se asemeje a una moto
+            const motoBody = BABYLON.MeshBuilder.CreateBox("motoBody", { height: 0.5, width: 1, depth: 2 }, scene);
+            motoBody.position.set(0, 0.25, roadLength / 2);
+
+            // Material para la moto
+            const motoMaterial = new BABYLON.StandardMaterial("motoMat", scene);
+            motoMaterial.diffuseColor = new BABYLON.Color3(1, 0, 0); // Rojo
+            motoBody.material = motoMaterial;
+
+            // Crear las ruedas de la moto
+            const wheelMaterial = new BABYLON.StandardMaterial("wheelMat", scene);
+            wheelMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1); // Blanco
+
+            const motoFrontWheel = BABYLON.MeshBuilder.CreateCylinder("motoFrontWheel", { diameter: 0.3, height: 0.1 }, scene);
+            motoFrontWheel.position.y = 0.15;
+            motoFrontWheel.position.z = 0.8;
+            motoFrontWheel.rotation.x = Math.PI / 2;
+            motoFrontWheel.material = wheelMaterial;
+            motoFrontWheel.parent = motoBody;
+
+            const motoBackWheel = BABYLON.MeshBuilder.CreateCylinder("motoBackWheel", { diameter: 0.3, height: 0.1 }, scene);
+            motoBackWheel.position.y = 0.15;
+            motoBackWheel.position.z = -0.8;
+            motoBackWheel.rotation.x = Math.PI / 2;
+            motoBackWheel.material = wheelMaterial;
+            motoBackWheel.parent = motoBody;
+
+            // Crear la cámara trasera de la moto
+            const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 2, -5), scene);
+            camera.parent = motoBody;
+            camera.attachControl(canvas, true);
+            camera.rotation.y = Math.PI;
+
+            // Crear el sistema de partículas para la estela de humo
+            const particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
+            particleSystem.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/flare.png", scene);
+            particleSystem.emitter = motoBody; // La moto es el emisor de partículas
+            particleSystem.minEmitBox = new BABYLON.Vector3(0, 0, -1); // Posición mínima de emisión
+            particleSystem.maxEmitBox = new BABYLON.Vector3(0, 0, -1); // Posición máxima de emisión
+
+            particleSystem.color1 = new BABYLON.Color4(0, 0, 1, 1.0);//azul neon Brillante
+            particleSystem.color2 = new BABYLON.Color4(0, 0, 1, 1.0);//azul mas suave
+            particleSystem.colorDead = new BABYLON.Color4(0, 0, 0.2, 0.0);// Azul oscuro casi transparente
+
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.5;
+
+            particleSystem.minLifeTime = 0.3;
+            particleSystem.maxLifeTime = 1.5;
+
+            particleSystem.emitRate = 1000;
+
+            particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+
+            particleSystem.gravity = new BABYLON.Vector3(0, 0, 0);
+
+            particleSystem.direction1 = new BABYLON.Vector3(0, 0, 1);
+            particleSystem.direction2 = new BABYLON.Vector3(0, 0, 1);
+
+            particleSystem.minAngularSpeed = 0;
+            particleSystem.maxAngularSpeed = Math.PI;
+
+            particleSystem.minEmitPower = 1;
+            particleSystem.maxEmitPower = 3;
+            particleSystem.updateSpeed = 0.005;
+
+            particleSystem.start();
+
+            let speed = 0.3;
+            let motoSpeed = 0.5;
+
+            const gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+
+            const speedSlider = new BABYLON.GUI.Slider();
+            speedSlider.minimum = 0.01;
+            speedSlider.maximum = 1;
+            speedSlider.value = speed;
+            speedSlider.height = "20px";
+            speedSlider.width = "200px";
+            speedSlider.color = "white";
+            speedSlider.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+            speedSlider.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+            speedSlider.top = "-20px";
+            speedSlider.right = "20px";
+            speedSlider.onValueChangedObservable.add((value) => {
+                speed = value;
+            });
+            gui.addControl(speedSlider);
+
+            const animateLightStrips = () => {
+                lightStrips.forEach(strip => {
+                    strip.position.z -= speed;
+                    if (strip.position.z < 0) {
+                        strip.position.z += roadLength;
+                    }
+                });
+                buildings.forEach(building => {
+                    building.position.z -= speed;
+                    if (building.position.z < 0) {
+                        building.position.z = roadLength;
+                        building.position.x = (Math.random() - 0.5) * roadWidth * 2;
+                    }
+                    building.material.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+                });
+            };
+
+            scene.registerBeforeRender(() => {
+                animateLightStrips();
+            });
+
+            window.addEventListener("keydown", (event) => {
+                if (event.key === "a" || event.key === "A") {
+                    motoBody.position.x -= motoSpeed;
+                }
+                if (event.key === "d" || event.key === "D") {
+                    motoBody.position.x += motoSpeed;
+                }
+
+                if (motoBody.position.x < -roadWidth / 2) {
+                    motoBody.position.x = -roadWidth / 2;
+                }
+                if (motoBody.position.x > roadWidth / 2) {
+                    motoBody.position.x = roadWidth / 2;
+                }
+            });
+
+            const background = new BABYLON.Layer("background", null, scene);
+            background.isBackground = true;
+            background.texture = new BABYLON.DynamicTexture("dynamicTexture", { width: 512, height: 512 }, scene, false);
+            background.texture.hasAlpha = true;
+            const ctx = background.texture.getContext();
+            const drawStars = () => {
+                ctx.clearRect(0, 0, 512, 512);
+                for (let i = 0; i < 200; i++) {
+                    const x = Math.random() * 512;
+                    const y = Math.random() * 512;
+                    const size = Math.random() * 2;
+                    ctx.fillStyle = "white";
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                background.texture.update();
+            };
+            drawStars();
+
+            const pipeline = new BABYLON.DefaultRenderingPipeline("pipeline", true, scene, [camera]);
+            pipeline.bloomEnabled = true;
+            pipeline.bloomThreshold = 0.8;
+            pipeline.bloomWeight = 0.3;
+            pipeline.bloomKernel = 64;
+            pipeline.bloomScale = 0.5;
+
+            const addButton = (text, callback) => {
+                const button = BABYLON.GUI.Button.CreateSimpleButton("button" + text, text);
+                button.width = "150px";
+                button.height = "40px";
+                button.color = "white";
+                button.cornerRadius = 20;
+                button.background = "black";
+                button.onPointerUpObservable.add(callback);
+                button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+                button.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+                return button;
+            };
+
+            const initialViewButton = addButton("Vista Inicial", () => {
+                camera.parent = null;
+                camera.setPosition(new BABYLON.Vector3(0, 20, -30));
+                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            });
+
+            const leftViewButton = addButton("Vista Izquierda", () => {
+                camera.parent = null;
+                camera.setPosition(new BABYLON.Vector3(-30, 10, 0));
+                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            });
+
+            const rightViewButton = addButton("Vista Derecha", () => {
+                camera.parent = null;
+                camera.setPosition(new BABYLON.Vector3(30, 10, 0));
+                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            });
+
+            const topViewButton = addButton("Vista Superior", () => {
+                camera.parent = null;
+                camera.setPosition(new BABYLON.Vector3(0, 50, 0));
+                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            });
+
+            const motoViewButton = addButton("Vista Moto", () => {
+                camera.parent = motoBody;
+                camera.position.set(0, 2, -5);
+                camera.rotation.y = Math.PI;
+            });
+
+            initialViewButton.top = "10px";
+            leftViewButton.top = "60px";
+            rightViewButton.top = "110px";
+            topViewButton.top = "160px";
+            motoViewButton.top = "210px";
+
+            gui.addControl(initialViewButton);
+            gui.addControl(leftViewButton);
+            gui.addControl(rightViewButton);
+            gui.addControl(topViewButton);
+            gui.addControl(motoViewButton);
+
+            return scene;
+        };
+
+        const scene = createScene();
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        window.addEventListener("resize", () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
