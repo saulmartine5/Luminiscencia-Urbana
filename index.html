@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escenario Futurista</title>
+    <title>LUMINICENCIA URBANA</title>
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
 </head>
@@ -12,6 +12,33 @@
     <script>
         const canvas = document.getElementById("renderCanvas");
         const engine = new BABYLON.Engine(canvas, true);
+
+        // Definir animateLightStrips fuera de createScene
+        const animateLightStrips = (lightStrips, buildings, speed, roadLength, roadWidth, colorChangeSpeed) => {
+            let colorChangeCounter = 0;
+            return () => {
+                lightStrips.forEach(strip => {
+                    strip.position.z -= speed;
+                    if (strip.position.z < 0) {
+                        strip.position.z += roadLength;
+                    }
+                });
+
+                buildings.forEach(building => {
+                    building.position.z -= speed;
+                    if (building.position.z < 0) {
+                        building.position.z = roadLength;
+                        building.position.x = (Math.random() - 0.5) * roadWidth * 2;
+                    }
+                    // Cambiar el color del edificio basado en el contador de cambio de color
+                    if (colorChangeCounter % colorChangeSpeed === 0) {
+                        building.material.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+                    }
+                });
+
+                colorChangeCounter++;
+            };
+        };
 
         const createScene = () => {
             const scene = new BABYLON.Scene(engine);
@@ -54,7 +81,7 @@
             }
 
             // Crear una figura que se asemeje a una moto
-            const motoBody = BABYLON.MeshBuilder.CreateBox("motoBody", { height: 0.5, width: 1, depth: 2 }, scene);
+            const motoBody = BABYLON.MeshBuilder.CreateBox("motoBody", { height: 0.2, width: 0.5, depth: 2 }, scene);
             motoBody.position.set(0, 0.25, roadLength / 2);
 
             // Material para la moto
@@ -81,10 +108,14 @@
             motoBackWheel.parent = motoBody;
 
             // Crear la cámara trasera de la moto
-            const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 2, -5), scene);
-            camera.parent = motoBody;
-            camera.attachControl(canvas, true);
-            camera.rotation.y = Math.PI;
+            const rearCamera = new BABYLON.FreeCamera("rearCamera", new BABYLON.Vector3(0, 2, -5), scene);
+            rearCamera.parent = motoBody;
+            rearCamera.attachControl(canvas, true);
+            rearCamera.rotation.y = Math.PI;
+
+            // Crear la cámara con zoom
+            const zoomCamera = new BABYLON.ArcRotateCamera("zoomCamera", Math.PI / 2, Math.PI / 4, 10, new BABYLON.Vector3(0, 0, roadLength / 2), scene);
+            zoomCamera.attachControl(canvas, true);
 
             // Crear el sistema de partículas para la estela de humo
             const particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
@@ -123,6 +154,7 @@
 
             let speed = 0.3;
             let motoSpeed = 0.5;
+            let colorChangeSpeed = 1; // Ajustar esta variable para cambiar la velocidad de cambio de color
 
             const gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
 
@@ -135,32 +167,19 @@
             speedSlider.color = "white";
             speedSlider.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
             speedSlider.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-            speedSlider.top = "-20px";
-            speedSlider.right = "20px";
             speedSlider.onValueChangedObservable.add((value) => {
                 speed = value;
             });
             gui.addControl(speedSlider);
 
-            const animateLightStrips = () => {
-                lightStrips.forEach(strip => {
-                    strip.position.z -= speed;
-                    if (strip.position.z < 0) {
-                        strip.position.z += roadLength;
-                    }
-                });
-                buildings.forEach(building => {
-                    building.position.z -= speed;
-                    if (building.position.z < 0) {
-                        building.position.z = roadLength;
-                        building.position.x = (Math.random() - 0.5) * roadWidth * 2;
-                    }
-                    building.material.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
-                });
-            };
+            // Eliminar la barra para modificar colorChangeSpeed desde la GUI
+
+            let animate;
 
             scene.registerBeforeRender(() => {
-                animateLightStrips();
+                // Actualizar animateLightStrips con los valores de velocidad actuales
+                animate = animateLightStrips(lightStrips, buildings, speed, roadLength, roadWidth, colorChangeSpeed);
+                animate();
             });
 
             window.addEventListener("keydown", (event) => {
@@ -199,7 +218,7 @@
             };
             drawStars();
 
-            const pipeline = new BABYLON.DefaultRenderingPipeline("pipeline", true, scene, [camera]);
+            const pipeline = new BABYLON.DefaultRenderingPipeline("pipeline", true, scene, [rearCamera, zoomCamera]);
             pipeline.bloomEnabled = true;
             pipeline.bloomThreshold = 0.8;
             pipeline.bloomWeight = 0.3;
@@ -219,47 +238,19 @@
                 return button;
             };
 
-            const initialViewButton = addButton("Vista Inicial", () => {
-                camera.parent = null;
-                camera.setPosition(new BABYLON.Vector3(0, 20, -30));
-                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            const rearViewButton = addButton("Vista Trasera", () => {
+                scene.activeCamera = rearCamera;
             });
 
-            const leftViewButton = addButton("Vista Izquierda", () => {
-                camera.parent = null;
-                camera.setPosition(new BABYLON.Vector3(-30, 10, 0));
-                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
+            const zoomViewButton = addButton("Vista Zoom", () => {
+                scene.activeCamera = zoomCamera;
             });
 
-            const rightViewButton = addButton("Vista Derecha", () => {
-                camera.parent = null;
-                camera.setPosition(new BABYLON.Vector3(30, 10, 0));
-                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
-            });
+            rearViewButton.top = "10px";
+            zoomViewButton.top = "60px";
 
-            const topViewButton = addButton("Vista Superior", () => {
-                camera.parent = null;
-                camera.setPosition(new BABYLON.Vector3(0, 50, 0));
-                camera.setTarget(new BABYLON.Vector3(0, 0, 0));
-            });
-
-            const motoViewButton = addButton("Vista Moto", () => {
-                camera.parent = motoBody;
-                camera.position.set(0, 2, -5);
-                camera.rotation.y = Math.PI;
-            });
-
-            initialViewButton.top = "10px";
-            leftViewButton.top = "60px";
-            rightViewButton.top = "110px";
-            topViewButton.top = "160px";
-            motoViewButton.top = "210px";
-
-            gui.addControl(initialViewButton);
-            gui.addControl(leftViewButton);
-            gui.addControl(rightViewButton);
-            gui.addControl(topViewButton);
-            gui.addControl(motoViewButton);
+            gui.addControl(rearViewButton);
+            gui.addControl(zoomViewButton);
 
             return scene;
         };
